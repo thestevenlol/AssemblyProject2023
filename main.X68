@@ -1,245 +1,157 @@
 *-----------------------------------------------------------
-* Title      : Endless Runner Starter Kit
-* Written by : Philip Bourke
-* Date       : 25/02/2023
-* Description: Endless Runner Project Starter Kit
+* Title      :
+* Written by :
+* Date       :
+* Description:
 *-----------------------------------------------------------
     ORG    $1000
 START:                  ; first instruction of program
 
-INITIALISE:
-    ; Initialise Sounds
-    BSR     RUN_LOAD
-    BSR     JUMP_LOAD
+; ========== LOCATIONS ==========
+HEALTH          EQU        $5000
+PLAYER_X        EQU        $6000
+PLAYER_Y        EQU        $6020
+; ========== LOCATIONS ==========
 
-    MOVE.L  #80, $4000  ; Players X Position
-    MOVE.L  #100, $4020 ; Players Y Position
 
-    MOVE.L  #640, $4030 ; Enemy X Position
-    MOVE.L  #100, $4040 ; Enemy Y Position
 
-    MOVEQ   #17, D1 * double buffering
-	MOVEQ	#92, D0 * set drawing mode to ^
-	TRAP	#15
-
-	MOVE.W  #$FF00, D1 * clear screen
-	MOVEQ   #11, D0
-	TRAP	#15
-
+    ; ===== DATA INIT =====
+    ; LOAD PLAYER X
+    MOVE.B #50, PLAYER_X
+    
+    ; LOAD PLAYER Y
+    MOVE.B #50, PLAYER_Y
+    
+    ; LOAD PLAYER HEALTH
+    MOVE.B #100, HEALTH
+    
+    LEA SCORE_MEM, A1   ; LOAD SCORE
+    MOVE.L  #$0, (A1)    
+    
+    ; ===== GRAPHICS =====
+    ; DRAWING MODE
+    CLR.L D0
+    CLR.L D1
+    MOVE.B #92, D0
+    MOVE.B #17, D1
+    TRAP #15
+    
+    ; PEN COLOUR
+    CLR.L D0
+    CLR.L D1
+    MOVE.B #80, D0
+    MOVE.L #$00FF0000, D1
+    TRAP #15
+    
+    ; PEN WIDTH
+    CLR.L D0
+    CLR.L D1
+    MOVE.B #93, D0
+    MOVE.B #$1, D1
+    TRAP #15
 
 GAMELOOP:
-    ; Main Gameloop
-    BSR     INPUT
-    BSR     UPDATE
-    BSR     DRAW
-    BRA     GAMELOOP
-
-INPUT:
-    ; Process Input
-    CLR.L   D1
-    MOVE.B  #19, D0
-    TRAP    #15
-    MOVE.B  D1, D2
-    CMP.B   #0, D2
-    BEQ     PROCESS_INPUT
-    TRAP    #15
+    BSR INPUT
+    BSR UPDATE
+    BSR DRAW
+    BRA GAMELOOP
     
-    ; Check if key still pressed
-    CMP.B   #$FF, D1
-    BEQ     PROCESS_INPUT
-    RTS
-
-PROCESS_INPUT:
-    MOVE.B  D2, $2000
-    CMP.B   #$1B,D2
-    BEQ     EXIT
-    CMP.B   #$20,D2
-    BEQ     JUMP
-    BRA     IDLE
-    RTS
-
-UPDATE:
-    ;LEA    KEYCODE_MSG, A1
-    ;MOVE   #14, D0
-    ;TRAP   #15
-    ;MOVE.B #3, D0
-    ;TRAP   #15
-
-    ;LEA    UPDATE_MSG, A1
-    ;MOVE   #13, D0
-    ;TRAP   #15
-    SUB.L   #1, $4030
-    RTS
-
-DRAW:
-    ;LEA    DRAW_MSG, A1
-    ;MOVE   #13, D0
-    ;TRAP   #15
-    MOVEQ   #94,D0
-    TRAP    #15
-
-    MOVEQ	#11,D0
-	MOVE.W	#$FF00,D1
-	TRAP    #15
-
-    BSR     DRAW_PLAYER
-    BSR     DRAW_ENEMY
+INPUT:  
+    MOVE.B #19, D0
+    MOVE.B #$20, D1
+    TRAP #15
+    CMP #$FF, D1
+    BEQ JUMP
     RTS
     
 JUMP:
-    ;LEA    JUMP_MSG, A1
-    ;MOVE #13, D0
-    ;TRAP #15
-    BSR     PLAY_JUMP
-    ADD.L   #-10, $4020
-    RTS
-    
-IDLE:
-    ;LEA    IDLE_MSG, A1
-    ;MOVE   #13, D0
-    ;TRAP   #15
-    BSR     PLAY_RUN
+    LEA PLAYER_Y, A1
+    LEA GROUND, A2
+    CLR D1
+    CLR D2
+    MOVE.B (A1), D1
+    MOVE.B (A2), D2
+    CMP D1, D2 ; CHECKS IF ON GROUND, WILL ONLY JUMP IF TRUE. PREVENTS DOUBLE, TRIPLE, QUADRUPLE JUMPS, ETC.
+    BEQ PERFORM_JUMP
     RTS
 
-RUN_LOAD:
-    LEA     RUN_WAV,A1
-    MOVE    #1,D1
-    MOVE    #71,D0
-    TRAP    #15
+PERFORM_JUMP
+    LEA PLAYER_Y, A1
+    CLR D1
+    MOVE.B (A1), D1
+    ADD.B #10, D1
+    MOVE.B D1, (A1)
     RTS
-
-PLAY_RUN:
-    MOVE    #1,D1
-    MOVE    #72,D0
-    TRAP    #15
-    TST.W   D0
-    BEQ     PLAY_RUN
+    
+CLEAR_SCREEN:
+    CLR.W D1
+    MOVE.B #11, D0
+    MOVE.W #$FF00, D1
+    TRAP #15
     RTS
+    
+DRAW:
+    ; DRAW SCORE
+    CLR.L D0
+    MOVE.B #17, D0
+    LEA SCORE_TEXT, A1
+    LEA SCORE_MEM, A2
+    MOVE.L (A2), D1
+    TRAP #15
 
-JUMP_LOAD:
-    LEA     JUMP_WAV,A1
-    MOVE    #1,D1
-    MOVE    #71,D0
-    TRAP    #15
+    ; MOVE CURSOR DOWN 1 ROW
+    CLR.L D1
+    MOVE.W #$0001, D1
+    MOVE.B #11, D0
+    TRAP #15
+    
+    ; DRAW HEALTH
+    CLR.L D0
+    CLR.L D1
+    LEA HEALTH_TEXT, A1
+    LEA HEALTH, A2
+    MOVE.B #17, D0
+    MOVE.B (A2), D1
+    TRAP #15
+    
+
+    ; BACK BUFFER - DO THIS AFTER EVERYTHING, BUT BEFORE CLEARING SCREEN
+    MOVE.B #94, D0
+    TRAP #15
+    
+    ; CLEAR SCREEN
+    BSR CLEAR_SCREEN
     RTS
-
-PLAY_JUMP:
-    MOVE    #1,D1
-    MOVE    #72,D0
-    TRAP    #15
-    TST.W   D0
-    BEQ     PLAY_JUMP
+    
+UPDATE:
+    ; ADD 10 TO CURRENT SCORE
+    LEA SCORE_MEM, A1
+    CLR.L D1
+    MOVE.L (A1), D1
+    ADD #1, D1
+    MOVE.L D1, (A1)
     RTS
-
-DRAW_PLAYER:
-    ; SET THE PIXEL COLORS
-    MOVE.L  #WHITE,D1
-    MOVE.B  #80,D0
-    TRAP    #15
-
-    ; SET X AND Y OF PIXELS
-    MOVE.L  $4000,D1
-    MOVE.L  $4020,D2
     
-    ; DRAW PIXEL
-    MOVE.B  #82,D0
-    TRAP    #15
-
-    ; SET X AND Y OF PIXELS
-    ADD.L   #1,D1
-    ADD.L   #0,D2
     
-    ; DRAW PIXEL
-    MOVE.B  #82,D0
-    TRAP    #15
 
-    ; SET X AND Y OF PIXELS
-    ADD.L   #1,D1
-    ADD.L   #0,D2
-    
-    ; DRAW PIXEL
-    MOVE.B  #82,D0
-    TRAP    #15
+END:
+    SIMHALT             ; halt simulator
 
-    ; SET X AND Y OF PIXELS
-    ADD.L   #1,D1
-    ADD.L   #0,D2
-    
-    ; DRAW PIXEL
-    MOVE.B  #82,D0
-    TRAP    #15
-    RTS
+CR EQU $0D
+LF EQU $0A
 
-DRAW_ENEMY:
-    ; SET THE PIXEL COLORS
-    MOVE.L  #RED,D1
-    MOVE.B  #80,D0
-    TRAP    #15
+GROUND      DC.B        $32
+SCORE_TEXT  DC.B        'Current Score: ',0
+HEALTH_TEXT DC.B        'Health: ',0
+B           DC.B        'B',0
+C           DC.B        'C',0
 
-    ; SET X AND Y OF PIXELS
-    MOVE.L  $4030,D1
-    MOVE.L  $4040,D2
-    
-    ; DRAW PIXEL
-    MOVE.B  #82,D0
-    TRAP    #15
+SCORE_MEM       DS.L        1
 
-    ; SET X AND Y OF PIXELS
-    ADD.L   #1,D1
-    ADD.L   #0,D2
-    
-    ; DRAW PIXEL
-    MOVE.B  #82,D0
-    TRAP    #15
-
-    ; SET X AND Y OF PIXELS
-    ADD.L   #1,D1
-    ADD.L   #0,D2
-    
-    ; DRAW PIXEL
-    MOVE.B  #82,D0
-    TRAP    #15
-
-    ; SET X AND Y OF PIXELS
-    ADD.L   #1,D1
-    ADD.L   #0,D2
-    
-    ; DRAW PIXEL
-    MOVE.B  #82,D0
-    TRAP    #15
-    RTS
-
-EXIT:
-    LEA     EXIT_MSG, A1
-    MOVE    #13, D0
-    TRAP    #15
-    MOVE.B  #9, D0
-    TRAP    #15
-    SIMHALT
-
-* Output Messages
-KEYCODE_MSG DC.B    'KeyCode : ', 0
-JUMP_MSG    DC.B    'Jump', 0
-IDLE_MSG    DC.B    'Idle....', 0
-
-UPDATE_MSG  DC.B    'Update....', 0
-DRAW_MSG    DC.B    'Draw....', 0
-
-EXIT_MSG    DC.B    'Exiting....', 0
-
-* Screen Pixel Color
-WHITE       EQU     $00FFFFFF
-RED         EQU     $000000FF
-
-* Sounds
-JUMP_WAV    DC.B    'jump.wav',0
-RUN_WAV     DC.B    'run.wav',0    
-KEEP_WAV    DC.B    'keep_it_up.wav',0
-WELL_WAV    DC.B    'well_done.wav',0
-AVOID_WAV   DC.B    'avoid.wav',0
-OPPS_WAV    DC.B    'opps.wav',0
 
     END    START        ; last line of source
+
+
 *~Font name~Courier New~
 *~Font size~10~
 *~Tab type~1~
