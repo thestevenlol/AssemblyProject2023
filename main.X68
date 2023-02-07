@@ -50,6 +50,44 @@ PLAYER_Y        EQU        $6020
     MOVE.B #$1, D1
     TRAP #15
 
+    ; Initialise Player Gravity
+    MOVE.B  #4,         D1          ; Init Player Gravity
+    MOVE.B  D1,         PLYR_GRAVITY
+
+    ; Initialize Player on Ground
+    MOVE.B  #GND_TRUE, PLYR_ON_GND  ; Init Player on Ground
+
+    ; Initial Position for Enemy
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
+    MOVE.L  D1,         ENEMY_X     ; Enemy X Position
+
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    MOVE.W  SCREEN_H,   D1          ; Place Screen width in D1
+    DIVU    #2,         D1          ; divide by 2 for center on Y Axis
+    MOVE.L  D1,         ENEMY_Y     ; Enemy Y Position
+
+    ; Enable the screen back buffer(see easy 68k help)
+	MOVE.B  #TC_DBL_BUFF,D0         ; 92 Enables Double Buffer
+    MOVE.B  #17,        D1          ; Combine Tasks
+	TRAP	#15                     ; Trap (Perform action)
+
+    ; Clear the screen (see easy 68k help)
+    MOVE.B  #TC_CURSOR, D0          ; Set Cursor Position
+	MOVE.W  #$FF00,     D1          ; Fill Screen Clear
+	TRAP	#15                     ; Trap (Perform action)
+	
+	LEA PLYR_MAX_JMP,   A1
+	MOVE.L  #0,        (A1)
+
+*-----------------------------------------------------------
+* Subroutine    : Game
+* Description   : Game including main GameLoop. GameLoop is like
+* a while loop in that it runs forever until interupted
+* (Input, Update, Draw). The Enemies Run at Player Jump to Avoid
+*-----------------------------------------------------------
+GAME:
+    BSR     PLAY_RUN                ; Play Run Wav
 GAMELOOP:
     BSR INPUT
     BSR UPDATE
@@ -63,7 +101,18 @@ INPUT:
     CMP #$FF, D1
     BEQ JUMP
     RTS
-    
+
+*-----------------------------------------------------------
+* Subroutine    : Off Ground
+* Description   : Set the Player Off Ground
+*-----------------------------------------------------------
+SET_OFF_GROUND:
+    MOVE.B  #GND_FALSE, PLYR_ON_GND ; Player if off Ground
+    RTS
+*-----------------------------------------------------------
+* Subroutine    : Jump
+* Description   : Perform a Jump
+*-----------------------------------------------------------
 JUMP:
     LEA PLAYER_Y, A1
     LEA GROUND, A2
