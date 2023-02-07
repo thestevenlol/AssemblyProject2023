@@ -8,19 +8,19 @@
 START:                  ; first instruction of program
 
 ; ========== LOCATIONS ==========
-HEALTH          EQU        $5000
-PLAYER_X        EQU        $6000
-PLAYER_Y        EQU        $6020
+HEALTH          EQU         $5000
+PLAYER_X        EQU         $6000
+PLAYER_Y        EQU         $6020
 ; ========== LOCATIONS =========
 
 
 
     ; ===== DATA INIT =====
     ; LOAD PLAYER X
-    MOVE.B #50, PLAYER_X
+    MOVE.W #200, PLAYER_X
     
     ; LOAD PLAYER Y
-    MOVE.B #50, PLAYER_Y
+    MOVE.W #600, PLAYER_Y
     
     ; LOAD PLAYER HEALTH
     MOVE.B #100, HEALTH
@@ -28,19 +28,17 @@ PLAYER_Y        EQU        $6020
     LEA SCORE_MEM, A1   ; LOAD SCORE
     MOVE.L  #$0, (A1)    
     
+    ; SET WINDOW SIZE
+    MOVE.B #33, D0
+    MOVE.L #1000*$10000+800, D1
+    TRAP #15
+    
     ; ===== GRAPHICS =====
     ; DRAWING MODE
     CLR.L D0
     CLR.L D1
     MOVE.B #92, D0
     MOVE.B #17, D1
-    TRAP #15
-    
-    ; PEN COLOUR
-    CLR.L D0
-    CLR.L D1
-    MOVE.B #80, D0
-    MOVE.L #$00FF0000, D1
     TRAP #15
     
     ; PEN WIDTH
@@ -62,6 +60,8 @@ INPUT:
     TRAP #15
     CMP #$FF, D1
     BEQ JUMP
+    BNE JUMP_FALL
+
     RTS
     
 JUMP:
@@ -75,13 +75,36 @@ JUMP:
     BEQ PERFORM_JUMP
     RTS
 
-PERFORM_JUMP
+PERFORM_JUMP:
     LEA PLAYER_Y, A1
+    LEA MAX_JUMP_HEIGHT, A2
     CLR D1
-    MOVE.B (A1), D1
-    ADD.B #10, D1
-    MOVE.B D1, (A1)
+    CLR D2
+    CLR D3
+    MOVE.W (A1), D1
+    MOVE.W (A2), D2
+    SUB.W D1, D2
+    ADD.W D2, (A1)
     RTS
+    
+JUMP_FALL:
+    LEA PLAYER_Y, A1
+    LEA GROUND, A2
+    CLR D1
+    CLR D2
+    MOVE.B (A1), D1
+    MOVE.B (A2), D2
+    CMP D1, D2 ; CHECKS IF ON GROUND, WILL ONLY JUMP IF TRUE. PREVENTS DOUBLE, TRIPLE, QUADRUPLE JUMPS, ETC.
+    BNE PERFORM_JUMP_FALL
+    RTS
+    
+PERFORM_JUMP_FALL:
+    LEA PLAYER_Y, A1
+    ADD.W #100, (A1)
+    RTS
+    
+    
+; ========== DRAWING ==========
     
 CLEAR_SCREEN:
     CLR.W D1
@@ -91,6 +114,19 @@ CLEAR_SCREEN:
     RTS
     
 DRAW:
+    ; DRAW GROUND
+    CLR.L D0
+    CLR.L D1
+    CLR.L D2
+    CLR.L D3
+    CLR.L D4
+    MOVE.W #0, D1
+    MOVE.W #600, D2
+    MOVE.W #1000, D3
+    MOVE.W #600, D4
+    MOVE.B #84, D0
+    TRAP #15
+    
     ; DRAW SCORE
     CLR.L D0
     MOVE.B #17, D0
@@ -114,6 +150,7 @@ DRAW:
     MOVE.B (A2), D1
     TRAP #15
     
+    BSR DRAW_PLAYER
 
     ; BACK BUFFER - DO THIS AFTER EVERYTHING, BUT BEFORE CLEARING SCREEN
     MOVE.B #94, D0
@@ -123,14 +160,64 @@ DRAW:
     BSR CLEAR_SCREEN
     RTS
     
+DRAW_PLAYER:
+    LEA PLAYER_X, A1
+    LEA PLAYER_Y, A2
+    MOVE.W #10, D7
+    MOVE.W (A2), D6
+    MOVE.W (A1), D5
+    
+    SUB.W D7, D6
+    
+    CLR.L D1
+    CLR.L D2
+    CLR.L D3
+    CLR.L D4
+    
+    ; LEFT X
+    MOVE.W D5, D1
+    SUB.W D7, D1
+    
+    ; UPPER Y
+    MOVE.W D6, D2
+    SUB.W D7, D2
+    
+    ; RIGHT X
+    MOVE.W D5, D3
+    ADD.W D7, D3
+    
+    ; UPPER Y
+    MOVE.W D6, D4
+    ADD.W D7, D4
+    
+
+    
+    ; TRAP
+    CLR.L D0
+    MOVE.B #90, D0
+    TRAP #15
+    
+    ; RETURN
+    RTS
+    
+    
+; ========== DRAWING ==========
+
+
+
+
+; ========== UPDATING ==========
+    
 UPDATE:
     ; ADD 10 TO CURRENT SCORE
     LEA SCORE_MEM, A1
     CLR.L D1
     MOVE.L (A1), D1
-    ADD #1, D1
+    ADD.L #1, D1
     MOVE.L D1, (A1)
     RTS
+    
+; ========== UPDATING ==========
     
     
 
@@ -140,16 +227,15 @@ END:
 CR EQU $0D
 LF EQU $0A
 
-GROUND      DC.B        $32
+SCORE_MEM   DS.L        1
+GROUND      DC.W        $258
+MAX_JUMP_HEIGHT DC.W    $1F4
 SCORE_TEXT  DC.B        'Current Score: ',0
 HEALTH_TEXT DC.B        'Health: ',0
-B           DC.B        'B',0
-C           DC.B        'C',0
-
-SCORE_MEM       DS.L        1
 
 
     END    START        ; last line of source
+
 
 
 
