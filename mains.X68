@@ -11,7 +11,8 @@ START:                  ; first instruction of program
 HEALTH          EQU         $5000
 PLAYER_X        EQU         $6000
 PLAYER_Y        EQU         $6020
-; ========== LOCATIONS =========
+PLAYER_Y_VEL    EQU         $6040
+; ========== LOCATIONS ==========
 
 
 
@@ -21,6 +22,9 @@ PLAYER_Y        EQU         $6020
     
     ; LOAD PLAYER Y
     MOVE.W #600, PLAYER_Y
+    
+    ; LOAD PLAYER Y VELOCITY
+    MOVE.B #0, PLAYER_Y_VEL
     
     ; LOAD PLAYER HEALTH
     MOVE.B #100, HEALTH
@@ -52,7 +56,11 @@ GAMELOOP:
     BSR INPUT
     BSR UPDATE
     BSR DRAW
+    BSR DELAY
     BRA GAMELOOP
+      
+DELAY:
+    RTS
     
 INPUT:  
     MOVE.B #19, D0
@@ -61,45 +69,43 @@ INPUT:
     CMP #$FF, D1
     BEQ JUMP
     BNE JUMP_FALL
-
     RTS
     
 JUMP:
-    LEA PLAYER_Y, A1
-    LEA GROUND, A2
-    CLR D1
-    CLR D2
-    MOVE.B (A1), D1
-    MOVE.B (A2), D2
-    CMP D1, D2 ; CHECKS IF ON GROUND, WILL ONLY JUMP IF TRUE. PREVENTS DOUBLE, TRIPLE, QUADRUPLE JUMPS, ETC.
-    BEQ PERFORM_JUMP
+    ; INIT VELOCITIES
+    LEA PLAYER_JUMP_VEL, A1
+    MOVE.B (A1), PLAYER_Y_VEL
     RTS
 
-PERFORM_JUMP:
-    LEA PLAYER_Y, A1
-    LEA MAX_JUMP_HEIGHT, A2
-    CLR D1
-    CLR D2
-    CLR D3
-    MOVE.W (A1), D1
-    MOVE.W (A2), D2
-    SUB.W D1, D2
-    ADD.W D2, (A1)
-    RTS
-    
 JUMP_FALL:
     LEA PLAYER_Y, A1
     LEA GROUND, A2
-    CLR D1
-    CLR D2
-    MOVE.B (A1), D1
-    MOVE.B (A2), D2
-    CMP D1, D2 ; CHECKS IF ON GROUND, WILL ONLY JUMP IF TRUE. PREVENTS DOUBLE, TRIPLE, QUADRUPLE JUMPS, ETC.
-    BNE PERFORM_JUMP_FALL
+    
+    CLR.W D1
+    CLR.W D2
+    
+    MOVE.W (A1), D1
+    MOVE.W (A2), D2
+    
+    CMP D1, D2
+    BNE CHECK_HEIGHT
+    RTS
+    
+CHECK_HEIGHT:
+    LEA PLAYER_Y, A1
+    LEA MAX_JUMP_HEIGHT, A2
+    
+    CLR.L D1
+    CLR.L D2
+    
+    MOVE.W (A1), D1
+    MOVE.W (A2), D2
+    
+    CMP D1, D2
+    BEQ PERFORM_JUMP_FALL
     RTS
     
 PERFORM_JUMP_FALL:
-    LEA PLAYER_Y, A1
     ADD.W #100, (A1)
     RTS
     
@@ -215,6 +221,21 @@ UPDATE:
     MOVE.L (A1), D1
     ADD.L #1, D1
     MOVE.L D1, (A1)
+    
+    ; PLAYER Y UPDATE
+    LEA PLAYER_Y, A1
+    LEA MAX_JUMP_HEIGHT, A2
+    CLR.L D1
+    CLR.L D2
+    MOVE.W (A1), D1
+    MOVE.W (A2), D2
+    
+    CMP D1, D2
+    BNE SUB_PLAYER_Y_VEL
+    RTS
+    
+SUB_PLAYER_Y_VEL:
+    SUB.B #1, PLAYER_Y_VEL
     RTS
     
 ; ========== UPDATING ==========
@@ -228,13 +249,18 @@ CR EQU $0D
 LF EQU $0A
 
 SCORE_MEM   DS.L        1
+
 GROUND      DC.W        $258
 MAX_JUMP_HEIGHT DC.W    $1F4
+
 SCORE_TEXT  DC.B        'Current Score: ',0
 HEALTH_TEXT DC.B        'Health: ',0
+PLAYER_JUMP_VEL DC.B         $5  ; INITIAL JUMP VELOCITY
+GRAVITY         DC.B         $1     
 
 
     END    START        ; last line of source
+
 
 
 
