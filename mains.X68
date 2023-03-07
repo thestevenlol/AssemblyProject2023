@@ -1,71 +1,45 @@
 *-----------------------------------------------------------
-* Title      :  Endless Runner
-* Written by :  Jack Foley, C00274246
-* Date       :  07/02/2023
-* Description:  Pain
+* Title      :
+* Written by :
+* Date       :
+* Description:
 *-----------------------------------------------------------
     ORG    $1000
-START:                  ; first instruction of program
-
-; ========== LOCATIONS ==========
+START:
+    
+    ; SETUP    
+    
+    ; MEMORY DEFINITION
 HEALTH          EQU         $5000
+SCORE           EQU         $5020
 PLAYER_X        EQU         $6000
 PLAYER_Y        EQU         $6020
 PLAYER_VEL      EQU         $6040
-
-LAST_KEY        EQU         $5020
-
+PLAYER_JUMPING  EQU         $6041
 ENEMY_X         EQU         $7000
 ENEMY_Y         EQU         $7020
-; ========== LOCATIONS =========
-
-
-
-    ; ===== DATA INIT =====
- 
-    ; LOAD PLAYER X
-    MOVE.W #200, PLAYER_X
     
-    ; LOAD PLAYER Y
-    MOVE.W #600, PLAYER_Y
-    
-    ; LOAD PLAYER Y VELOCITY
-    MOVE.B #0, PLAYER_Y_VEL
-    
-    ; LOAD PLAYER HEALTH
+    ; LOAD MEMORY
     MOVE.B #100, HEALTH
-    
-    ; LOAD ENEMY X
+    MOVE.W #200, PLAYER_X
+    MOVE.W #600, PLAYER_Y
+    MOVE.B #0,   PLAYER_VEL
     MOVE.W #600, ENEMY_X
-    
-    ; LOAD ENEMY Y
     MOVE.W #600, ENEMY_Y
     
-    ; LOAD PLAYER VELOCITY
-    MOVE.B #0,   PLAYER_VEL
-    
-    LEA SCORE_MEM, A1   ; LOAD SCORE
-    MOVE.L  #$0, (A1)    
+    ; INITIALISE DRAWING MODE
+    MOVE.B #92, D0
+    MOVE.B #17, D1
+    TRAP #15
+    CLR.B D0
+    CLR.B D1
     
     ; SET WINDOW SIZE
     MOVE.B #33, D0
     MOVE.L #1000*$10000+800, D1
     TRAP #15
-    
-    ; ===== GRAPHICS =====
-    ; DRAWING MODE
     CLR.L D0
     CLR.L D1
-    MOVE.B #92, D0
-    MOVE.B #17, D1
-    TRAP #15
-    
-    ; PEN WIDTH
-    CLR.L D0
-    CLR.L D1
-    MOVE.B #93, D0
-    MOVE.B #$1, D1
-    TRAP #15
     
     ; TIME
     MOVE.B #08, D0
@@ -75,6 +49,7 @@ ENEMY_Y         EQU         $7020
     BRA GAMELOOP
 
 TICK:
+
     ; PREV = D2
     ; GET CURRENT INTO D1 AND D3
     ; SUB D2, D3
@@ -94,107 +69,39 @@ TICK:
     
 GAMELOOP:
     BSR TICK
-    BSR INPUT
-    BSR UPDATE
     BSR DRAW
+    BSR UPDATE
+    BSR INPUT
     
     ; TIME
     MOVE.B #08, D0
     TRAP #15
     MOVE.L D1, D2
-
+    
     BRA GAMELOOP
-      
-DELAY:
-    RTS
-    
-    
-INPUT:  
-    MOVE.B #19, D0
-    MOVE.B #$20, D1
-    TRAP #15
-    CMP #$FF, D1
-    BEQ JUMP_INIT
-    RTS
-    
-JUMP_INIT:
-    ; GET PLAYER Y AND GROUND Y
-    ; CHECK IF ON GROUND
-    ; IF YES, SET PLAYER_VEL TO MAX_VEL
-    ; BSR JUMP
-    
-    ; PLAYER Y
-    LEA $6020, A1
-    CLR.L D1
-    MOVE.W (A1), D1
-    
-    ; GROUND
-    CLR.L D2
-    MOVE.W GROUND, D2
-    
-    CMP D1, D2
-    BEQ JUMP
-    RTS
-    
-    
-JUMP:
-    ; LOAD VEL INTO A1 AND D1
-    LEA PLAYER_VEL, A1
-    CLR.L D1
-    MOVE.B (A1), D1    
- 
-    ; CHECK IF ZERO
-    CMP #0, D1
-    BEQ LOAD_VEL
-    
-    ; LOAD PLAYER_Y
-    LEA PLAYER_Y, A2
-    CLR.L D2
-    MOVE.W (A2), D2
-    
-    ; ADD VEL TO PLAYER Y
-    SUB.W D1, D2
-    
-    ; MOVE PLAYER Y BACK TO MEM
-    MOVE.W D2, (A2)
-    
-    ; DECREMENT VEL
-    SUB.B #4, D1
-    
-    ; MOVE VEL BACK TO MEM
-    MOVE.B D1, (A1)
 
-    ; VEL IS CHECK AGAIN IN UPDATE,
-    ; IF IT IS NOT ZERO, RUN THIS SUBROUTINE AGAIN
-    
-    RTS
- 
-LOAD_VEL:
-    MOVE.B MAX_VEL, D1
-    MOVE.B D1, (A1)
-    RTS
- 
-FALL:
-    RTS
-    
-    
-    
-; ========== DRAWING ==========
-    
-CLEAR_SCREEN:
-    CLR.W D1
-    MOVE.B #11, D0
-    MOVE.W #$FF00, D1
-    TRAP #15
-    RTS
-    
+; DRAWING START
+
 DRAW:
-    ; DRAW GROUND
+    BSR DRAW_GROUND
+    BSR DRAW_SCORE
+    BSR LOWER_CURSOR
+    BSR DRAW_HEALTH
+    BSR DRAW_PLAYER
+    BSR DRAW_ENEMY
+    BSR BACK_BUFFER
+    BSR CLEAR_SCREEN
+    RTS
+    
+LOWER_CURSOR:
+    MOVE.W #$0001, D1
+    MOVE.B #11, D0
+    TRAP #15
     CLR.L D0
     CLR.L D1
-    CLR.L D2
-    CLR.L D3
-    CLR.L D4
+    RTS
+
+DRAW_GROUND:
     MOVE.W #0, D1
     MOVE.W #600, D2
     MOVE.W #1000, D3
@@ -202,38 +109,45 @@ DRAW:
     MOVE.B #84, D0
     TRAP #15
     
-    ; DRAW SCORE
     CLR.L D0
+    CLR.L D1
+    CLR.L D2
+    CLR.L D3
+    CLR.L D4
+    RTS
+
+DRAW_SCORE:
     MOVE.B #17, D0
     LEA SCORE_TEXT, A1
     LEA SCORE_MEM, A2
     MOVE.L (A2), D1
     TRAP #15
-
-    ; MOVE CURSOR DOWN 1 ROW
-    CLR.L D1
-    MOVE.W #$0001, D1
-    MOVE.B #11, D0
-    TRAP #15
-    
-    ; DRAW HEALTH
     CLR.L D0
     CLR.L D1
+    RTS
+    
+DRAW_HEALTH:
     LEA HEALTH_TEXT, A1
     LEA HEALTH, A2
     MOVE.B #17, D0
     MOVE.B (A2), D1
     TRAP #15
+    CLR.L D0
+    CLR.L D1
+    RTS
     
-    BSR DRAW_PLAYER
-    BSR DRAW_ENEMY
-
-    ; BACK BUFFER - DO THIS AFTER EVERYTHING, BUT BEFORE CLEARING SCREEN
+BACK_BUFFER:
     MOVE.B #94, D0
     TRAP #15
+    CLR.L D0
+    RTS
     
-    ; CLEAR SCREEN
-    BSR CLEAR_SCREEN
+CLEAR_SCREEN:
+    MOVE.B #11, D0
+    MOVE.W #$FF00, D1
+    TRAP #15
+    CLR.L D0
+    CLR.L D1
     RTS
     
 DRAW_PLAYER:
@@ -244,11 +158,6 @@ DRAW_PLAYER:
     MOVE.W (A1), D5
     
     SUB.W D7, D6
-    
-    CLR.L D1
-    CLR.L D2
-    CLR.L D3
-    CLR.L D4
     
     ; LEFT X
     MOVE.W D5, D1
@@ -266,12 +175,19 @@ DRAW_PLAYER:
     MOVE.W D6, D4
     ADD.W D7, D4
     
-
-    
     ; TRAP
     CLR.L D0
     MOVE.B #90, D0
     TRAP #15
+    
+    ; CLEAR DATA REGISTERS
+    CLR.L D1
+    CLR.L D2
+    CLR.L D3
+    CLR.L D4
+    CLR.L D5
+    CLR.L D6
+    CLR.L D7
     
     ; RETURN
     RTS
@@ -306,36 +222,97 @@ DRAW_ENEMY:
     MOVE.W D6, D4
     ADD.W D7, D4
     
-
-    
     ; TRAP
     CLR.L D0
     MOVE.B #90, D0
     TRAP #15
     
+    CLR.L D0
+    CLR.L D1
+    CLR.L D2
+    CLR.L D3
+    CLR.L D4
+    
     ; RETURN
     RTS
 
-    
-    
-    
-; ========== DRAWING ==========
 
+; DRAWING END
 
-
-
-; ========== UPDATING ==========
+; UPDATING START
     
 UPDATE:
-    ; ADD 10 TO CURRENT SCORE
+    BSR UPDATE_SCORE
+    BSR UPDATE_PLAYER_POS
+    BSR UPDATE_ENEMY_POS
+    BSR CHECK_COLLISION
+    RTS
+    
+UPDATE_SCORE:
     LEA SCORE_MEM, A1
-    CLR.L D1
     MOVE.L (A1), D1
     ADD.L #1, D1
     MOVE.L D1, (A1)
+    CLR.L D1
+    RTS
     
-    ; UPDATE ENEMY POS
+UPDATE_PLAYER_POS:
+    LEA PLAYER_Y, A1
+    LEA PLAYER_VEL, A2
+    LEA GROUND, A3
+    LEA PLAYER_JUMPING, A4
     
+    MOVE.W (A1), D1
+    MOVE.B (A2), D2
+    MOVE.W (A3), D3
+    MOVE.B (A4), D4
+    
+    CMP #1, D4
+    BEQ JUMPING
+    
+    CMP #2, D4
+    BEQ FALLING
+    
+    RTS
+    
+JUMPING:
+    CMP #0, D2
+    BEQ DONE_JUMPING
+
+    SUB.W D2, D1
+    MOVE.W D1, (A1)
+    SUB.B #1, D2
+    MOVE.B D2, (A2)
+    CLR.L D1
+    CLR.L D2
+    RTS
+    
+DONE_JUMPING:
+    MOVE.B #2, (A4)
+    CLR.L D4
+    RTS
+    
+FALLING:
+    CMP #20, D2
+    BEQ DONE_FALLING
+    
+    ADD.W D2, D1
+    MOVE.W D1, (A1)
+    ADD.B #1, (A2)
+    CLR.L D1
+    CLR.L D2
+    RTS
+
+DONE_FALLING:
+    ADD.W D2, D1
+    MOVE.W D1, (A1)
+    MOVE.B #0, (A2)
+    MOVE.B #0, (A4)
+    CLR.L D2
+    CLR.L D4
+    RTS
+    
+UPDATE_ENEMY_POS:
     ; GET CURRENT X
     LEA ENEMY_X, A1
     CLR.L D1
@@ -345,59 +322,87 @@ UPDATE:
     CMP.W #0, D1
     BLE RESET_ENEMY_POS
     
-    SUB.W #10, D1
+    SUB.W #5, D1
     MOVE.W D1, (A1)
+    RTS
     
-    ; JUMPING
-    ; LOAD PLAYER VEL INTO A1 AND D1
+RESET_ENEMY_POS:
+    MOVE.W #1000, (A1)
+    RTS
+    
+CHECK_COLLISION:
+    LEA PLAYER_X, A1
+    LEA ENEMY_X, A2
+    
+    MOVE.W (A1), D1
+    MOVE.W (A2), D2
+   
+    CMP D1, D2
+    BEQ Y_COLLISION
+    RTS
+
+Y_COLLISION:
+    LEA PLAYER_Y, A1
+    LEA ENEMY_Y, A2
+    
+    MOVE.W (A1), D1
+    MOVE.W (A2), D2
+    
+    CMP D1, D2
+    BEQ COLLISION
+    RTS
+
+COLLISION:
+    END
+
+    
+; UPDATING END
+
+; INPUT START
+
+INPUT:
+    BSR CHECK_SPACE
+    BEQ ON_GROUND
+    RTS
+
+START_JUMP:
     LEA PLAYER_VEL, A1
+    MOVE.B #20, (A1)
+    LEA PLAYER_JUMPING, A1
+    MOVE.B #1, (A1)
     CLR.L D1
-    MOVE.B (A1), D1
-    
+    CLR.L D2
+    RTS
+
+CHECK_SPACE:
     MOVE.B #19, D0
     MOVE.B #$20, D1
     TRAP #15
     CMP #$FF, D1
-    BEQ JUMP_UPDATE
-    
     RTS
     
-JUMP_UPDATE:
-    ; CHECK IF VEL IS NOT ZERO
-    CMP #0, D1
-    BGT JUMP
+ON_GROUND
+    LEA PLAYER_Y, A1
+    LEA GROUND, A2
     
+    MOVE.W (A1), D1
+    MOVE.W (A2), D2
+    
+    CMP D1, D2
+    BEQ START_JUMP
     RTS
-  
-RESET_ENEMY_POS:
-    MOVE.W #999, (A1)
-    RTS
     
-; ========== UPDATING ==========
+; INPUT END
     
     
-
-END:
-    SIMHALT             ; halt simulator
-
-CR EQU $0D
-LF EQU $0A
-
+    SIMHALT
+    
 SCORE_MEM   DS.L        1
-
-GROUND      DC.W        $258
-MAX_JUMP_HEIGHT DC.W    $1F4
-
 SCORE_TEXT  DC.B        'Current Score: ',0
 HEALTH_TEXT DC.B        'Health: ',0
-MAX_VEL     DC.B        $20
-
-    END    START        ; last line of source
-
-
-
-
-
+GROUND      DC.W        $258
+    
+    END    START
 
 *~Font name~Courier New~
 *~Font size~10~
