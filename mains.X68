@@ -351,9 +351,12 @@ Y_COLLISION:
     CMP D1, D2
     BEQ COLLISION
     RTS
-
+    
 COLLISION:
-    END
+    LEA SCORE_MEM, A1
+    MOVE.L #0, (A1)
+    BRA START
+    RTS
 
     
 ; UPDATING END
