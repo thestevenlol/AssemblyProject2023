@@ -29,6 +29,9 @@ ENEMY_Y         EQU         $7020
     ; LOAD PLAYER Y
     MOVE.W #600, PLAYER_Y
     
+    ; LOAD PLAYER Y VELOCITY
+    MOVE.B #0, PLAYER_Y_VEL
+    
     ; LOAD PLAYER HEALTH
     MOVE.B #100, HEALTH
     
@@ -101,6 +104,9 @@ GAMELOOP:
     MOVE.L D1, D2
 
     BRA GAMELOOP
+      
+DELAY:
+    RTS
     
     
 INPUT:  
@@ -378,14 +384,15 @@ CR EQU $0D
 LF EQU $0A
 
 SCORE_MEM   DS.L        1
+
 GROUND      DC.W        $258
 MAX_JUMP_HEIGHT DC.W    $1F4
+
 SCORE_TEXT  DC.B        'Current Score: ',0
 HEALTH_TEXT DC.B        'Health: ',0
 MAX_VEL     DC.B        $20
 
     END    START        ; last line of source
-
 
 
 
