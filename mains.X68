@@ -17,7 +17,9 @@ PLAYER_Y        EQU         $6020
 PLAYER_VEL      EQU         $6040
 PLAYER_JUMPING  EQU         $6041
 ENEMY_X         EQU         $7000
-ENEMY_Y         EQU         $7020
+ENEMY_Y         EQU         $7010
+ENEMY_W         EQU         $7020
+ENEMY_H         EQU         $7030
     
     ; LOAD MEMORY
     MOVE.B #100, HEALTH
@@ -25,7 +27,18 @@ ENEMY_Y         EQU         $7020
     MOVE.W #600, PLAYER_Y
     MOVE.B #0,   PLAYER_VEL
     MOVE.W #600, ENEMY_X
-    MOVE.W #600, ENEMY_Y
+    
+    BSR RANDOM_NUM_THREE
+    MOVE.W #600, D2
+    SUB.W D1, D2
+    MOVE.W D2, ENEMY_Y
+    CLR.L D1
+    CLR.L D2
+    
+    BSR RANDOM_NUM_ONE
+    MOVE.W D1,   ENEMY_W
+    BSR RANDOM_NUM_TWO
+    MOVE.W D1,   ENEMY_H
     
     ; INITIALISE DRAWING MODE
     MOVE.B #92, D0
@@ -48,6 +61,56 @@ ENEMY_Y         EQU         $7020
     
     BRA GAMELOOP
 
+RANDOM_NUM_ONE:
+    CLR.L D0
+    CLR.L D1
+    MOVE.B #8, D0
+    TRAP #15
+    
+    AND.L #$000FFFFF, D1 ; PREVENT OVERFLOW
+    DIVU #50, D1
+    SWAP D1
+    ADDQ.W #8, D1
+    MOVE.W D1, D2
+    CLR.L D1
+    MOVE.W D2, D1
+    CLR.L D2
+    
+    RTS
+    
+RANDOM_NUM_TWO:
+    CLR.L D0
+    CLR.L D1
+    MOVE.B #8, D0
+    TRAP #15
+    
+    AND.L #$000FFFFF, D1 ; PREVENT OVERFLOW
+    DIVU #30, D1
+    SWAP D1
+    ADDQ.W #8, D1
+    MOVE.W D1, D2
+    CLR.L D1
+    MOVE.W D2, D1
+    CLR.L D2
+    
+    RTS
+    
+RANDOM_NUM_THREE:
+    CLR.L D0
+    CLR.L D1
+    MOVE.B #8, D0
+    TRAP #15
+    
+    AND.L #$000FFFFF, D1 ; PREVENT OVERFLOW
+    DIVU #30, D1
+    SWAP D1
+    MOVE.W D1, D2
+    CLR.L D1
+    MOVE.W D2, D1
+    CLR.L D2
+    
+    RTS
+
 TICK:
 
     ; PREV = D2
@@ -62,7 +125,7 @@ TICK:
     MOVE.L D1, D3
     
     SUB.L D2, D3
-    CMP #2, D3
+    CMP #1, D3
     BLT TICK
     MOVE.L D1, D2
     RTS
@@ -195,10 +258,12 @@ DRAW_PLAYER:
 DRAW_ENEMY:
     LEA ENEMY_X, A1
     LEA ENEMY_Y, A2
-    MOVE.W #10, D7
-    MOVE.W (A2), D6
-    MOVE.W (A1), D5
+    LEA ENEMY_W, A3
+    LEA ENEMY_H, A4
+    MOVE.W (A2), D6 ; Y
+    MOVE.W (A1), D5 ; X
     
+    MOVE.W (A4), D7
     SUB.W D7, D6
     
     CLR.L D1
@@ -207,18 +272,22 @@ DRAW_ENEMY:
     CLR.L D4
     
     ; LEFT X
+    MOVE.W (A3), D7
     MOVE.W D5, D1
     SUB.W D7, D1
     
     ; UPPER Y
+    MOVE.W (A4), D7
     MOVE.W D6, D2
     SUB.W D7, D2
     
     ; RIGHT X
+    MOVE.W (A3), D7
     MOVE.W D5, D3
     ADD.W D7, D3
     
     ; UPPER Y
+    MOVE.W (A4), D7
     MOVE.W D6, D4
     ADD.W D7, D4
     
@@ -322,40 +391,92 @@ UPDATE_ENEMY_POS:
     CMP.W #0, D1
     BLE RESET_ENEMY_POS
     
-    SUB.W #5, D1
+    SUB.W #20, D1
     MOVE.W D1, (A1)
     RTS
     
 RESET_ENEMY_POS:
+    LEA ENEMY_W, A1
+    MOVE.W (A1), D1
+    CLR.L D1
+    BSR RANDOM_NUM_ONE
+    MOVE.W D1, (A1)
+    
+    LEA ENEMY_H, A1    
+    MOVE.W (A1), D1
+    CLR.L D1
+    BSR RANDOM_NUM_TWO
+    MOVE.W D1, (A1)
+    
+    BSR RANDOM_NUM_THREE
+    MOVE.W #600, D2
+    SUB.W D1, D2
+    MOVE.W D2, ENEMY_Y
+    CLR.L D1
+    CLR.L D2
+    
+    LEA ENEMY_X, A1
     MOVE.W #1000, (A1)
     RTS
     
 CHECK_COLLISION:
-    LEA PLAYER_X, A1
-    LEA ENEMY_X, A2
-    
-    MOVE.W (A1), D1
-    MOVE.W (A2), D2
-   
-    CMP D1, D2
-    BEQ Y_COLLISION
-    RTS
+    CLR.L D1
+    CLR.L D2
+    CLR.L D3
+ 
+* (pX <= eX + eW) && (pX + pW >= eX) && (pY <= eY + eH) && (pY + pH >= eY)
 
-Y_COLLISION:
-    LEA PLAYER_Y, A1
-    LEA ENEMY_Y, A2
-    
-    MOVE.W (A1), D1
-    MOVE.W (A2), D2
-    
+
+CHECK_PX_LTE_EX_PLS_EW:
+    MOVE.W PLAYER_X, D1
+    MOVE.W ENEMY_X, D2
+    ADD.W ENEMY_W, D2
     CMP D1, D2
-    BEQ COLLISION
+    BLE CHECK_PX_PLS_PW_GTE_EX
+    RTS
+    
+CHECK_PX_PLS_PW_GTE_EX
+    MOVE.W ENEMY_X, D1
+    MOVE.W PLAYER_X, D2
+    ADD.W #10, D2
+    CMP D2, D1
+    BGE CHECK_PY_LTE_EY_PLS_EH
+    RTS
+    
+CHECK_PY_LTE_EY_PLS_EH:
+    MOVE.W PLAYER_Y, D1
+    MOVE.W ENEMY_Y, D2
+    ADD.W ENEMY_H, D2
+    CMP D1, D2
+    BLE CHECK_PY_PLS_PH_GTE_EY
+    RTS
+    
+CHECK_PY_PLS_PH_GTE_EY:
+    MOVE.W ENEMY_Y, D1
+    MOVE.W PLAYER_Y, D2
+    ADD.W #10, D2
+    CMP D2, D1
+    BGE COLLISION
     RTS
     
 COLLISION:
     LEA SCORE_MEM, A1
     MOVE.L #0, (A1)
-    BRA START
+    
+    LEA HEALTH, A1
+    MOVE.B (A1), D1
+    SUB.B #10, D1
+    MOVE.B D1, (A1)
+    CLR.L D1
+    
+    BSR CHECK_HEALTH
+    BEQ DEATH
+    
+    RTS
+    
+CHECK_HEALTH:
+    MOVE.B (A1), D1
+    CMP.B #0, D1
     RTS
 
     
@@ -397,15 +518,35 @@ ON_GROUND
     
 ; INPUT END
     
+END_TXT:
+    ;SET CURSOR
+    CLR.L D0
+    MOVE.B #11, D0
+    MOVE.W #$7F40, D1
+    TRAP #15
+    
+    ;PRINT MESSAGE
+    MOVE.B #14, D0
+    LEA END_MESSAGE, A1
+    TRAP #15
+    
+    RTS
+    
+DEATH:
+    BSR CLEAR_SCREEN
+    BSR END_TXT
+    BSR BACK_BUFFER
     
     SIMHALT
     
 SCORE_MEM   DS.L        1
 SCORE_TEXT  DC.B        'Current Score: ',0
 HEALTH_TEXT DC.B        'Health: ',0
+END_MESSAGE DC.B        'GAME OVER',0
 GROUND      DC.W        $258
     
     END    START
+
 
 *~Font name~Courier New~
 *~Font size~10~
