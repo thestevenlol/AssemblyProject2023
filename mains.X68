@@ -1,8 +1,9 @@
 *-----------------------------------------------------------
-* Title      :
-* Written by :
-* Date       :
-* Description:
+* Title      : Endless Runner
+* Written by : Jack Foley
+* Date       : 08/03/2023
+* Description: An endless runner
+* Known Issues: Collision is not exactly perfect, but not very noticeable
 *-----------------------------------------------------------
     ORG    $1000
 START:
@@ -602,6 +603,7 @@ BAD         DC.B        'youarebadatthisgame.wav',0
 OWIE        DC.B        'owie.wav',0
     
     END    START
+
 
 
 
