@@ -23,29 +23,39 @@ ENEMY_Y         EQU         $7010
 ENEMY_W         EQU         $7020
 ENEMY_H         EQU         $7030
     
+    ; LOAD SOUND
+    MOVE.B #71, D0
+    LEA BAD, A1
+    TRAP #15
+    
+    LEA OWIE, A1
+    TRAP #15
+    
+    CLR.L D0
+    
     ; LOAD MEMORY
-    MOVE.B #100, HEALTH
-    MOVE.W #200, PLAYER_X
-    MOVE.W #600, PLAYER_Y
-    MOVE.W #10,  PLAYER_W
-    MOVE.W #10,  PLAYER_H
-    MOVE.B #0,   PLAYER_VEL
-    MOVE.W #600, ENEMY_X
+    MOVE.B #100, HEALTH     ; player health
+    MOVE.W #200, PLAYER_X   ; player x coord
+    MOVE.W #600, PLAYER_Y   ; player y coord
+    MOVE.W #10,  PLAYER_W   ; player width
+    MOVE.W #10,  PLAYER_H   ; player height
+    MOVE.B #0,   PLAYER_VEL ; player velocity
+    MOVE.W #600, ENEMY_X    ; enemy x coord
     
     BSR RANDOM_NUM_THREE
     MOVE.W #600, D2
     SUB.W D1, D2
-    MOVE.W D2, ENEMY_Y
+    MOVE.W D2, ENEMY_Y      ; enemy y coord - init with random number
     CLR.L D1
     CLR.L D2
     
     BSR RANDOM_NUM_ONE
-    MOVE.W D1,   ENEMY_W
+    MOVE.W D1,   ENEMY_W    ; enemy width - init with random number
     BSR RANDOM_NUM_TWO
-    MOVE.W D1,   ENEMY_H
+    MOVE.W D1,   ENEMY_H    ; enemy height - init with random number
     
     ; INITIALISE DRAWING MODE
-    MOVE.B #92, D0
+    MOVE.B #92, D0 ; set to double buffering, prevents flickering on update
     MOVE.B #17, D1
     TRAP #15
     CLR.B D0
@@ -53,7 +63,7 @@ ENEMY_H         EQU         $7030
     
     ; SET WINDOW SIZE
     MOVE.B #33, D0
-    MOVE.L #1000*$10000+800, D1
+    MOVE.L #1000*$10000+800, D1 ; set window size 
     TRAP #15
     CLR.L D0
     CLR.L D1
@@ -65,7 +75,21 @@ ENEMY_H         EQU         $7030
     
     BRA GAMELOOP
 
-RANDOM_NUM_ONE:
+PLAY_BAD: ; plays 'you are bad at this game'
+    CLR.L D0
+    MOVE.B #70, D0
+    LEA BAD, A1
+    TRAP #15
+    RTS
+    
+PLAY_OWIE: ; plays 'owie ow ow ow ow'
+    CLR.L D0
+    MOVE.B #70, D0
+    LEA OWIE, A1
+    TRAP #15
+    RTS
+
+RANDOM_NUM_ONE: ; generate random num, min 8, div by 50
     CLR.L D0
     CLR.L D1
     MOVE.B #8, D0
@@ -82,7 +106,7 @@ RANDOM_NUM_ONE:
     
     RTS
     
-RANDOM_NUM_TWO:
+RANDOM_NUM_TWO: ; generate random num, min 8, div by 30
     CLR.L D0
     CLR.L D1
     MOVE.B #8, D0
@@ -99,7 +123,7 @@ RANDOM_NUM_TWO:
     
     RTS
     
-RANDOM_NUM_THREE:
+RANDOM_NUM_THREE: ; generate random num, min 8, div by 30
     CLR.L D0
     CLR.L D1
     MOVE.B #8, D0
@@ -115,7 +139,7 @@ RANDOM_NUM_THREE:
     
     RTS
 
-TICK:
+TICK: ; slow down game tick
 
     ; PREV = D2
     ; GET CURRENT INTO D1 AND D3
@@ -134,7 +158,7 @@ TICK:
     MOVE.L D1, D2
     RTS
     
-GAMELOOP:
+GAMELOOP: ; 
     BSR TICK
     BSR DRAW
     BSR UPDATE
@@ -218,6 +242,11 @@ CLEAR_SCREEN:
     RTS
     
 DRAW_PLAYER:
+    CLR.L D1
+    MOVE.L #$0000FF00, D1
+    MOVE.B #80, D0
+    TRAP #15
+
     LEA PLAYER_X, A1
     LEA PLAYER_Y, A2
     MOVE.W (A2), D6
@@ -255,10 +284,19 @@ DRAW_PLAYER:
     CLR.L D6
     CLR.L D7
     
+    MOVE.L #$00FFFFFF, D1
+    MOVE.B #80, D0
+    TRAP #15
+    
     ; RETURN
     RTS
     
 DRAW_ENEMY:
+    CLR.L D1
+    MOVE.L #$000000FF, D1
+    MOVE.B #80, D0
+    TRAP #15
+    
     LEA ENEMY_X, A1
     LEA ENEMY_Y, A2
     LEA ENEMY_W, A3
@@ -305,6 +343,10 @@ DRAW_ENEMY:
     CLR.L D3
     CLR.L D4
     
+    MOVE.L #$00FFFFFF, D1
+    MOVE.B #80, D0
+    TRAP #15
+    
     ; RETURN
     RTS
 
@@ -314,7 +356,6 @@ DRAW_ENEMY:
 ; UPDATING START
 
 UPDATE:
-    BSR GET_SPEED
     BSR UPDATE_SCORE
     BSR UPDATE_PLAYER_POS
     BSR UPDATE_ENEMY_POS
@@ -483,13 +524,15 @@ CHECK_Y_BOTTOM:
 COLLISION:
     LEA HEALTH, A1
     MOVE.B (A1), D1
-    CMP.B #0, D1
+    CMP.B #10, D1
     BEQ DEATH
 
     SUB.B #10, D1
     MOVE.B D1, (A1)
     
     BSR RESET_ENEMY_POS
+    
+    BSR PLAY_OWIE
     
     RTS
 
@@ -542,8 +585,11 @@ END_TXT:
     
 DEATH:
     BSR CLEAR_SCREEN
+    BSR DRAW_SCORE
+    BSR LOWER_CURSOR
     BSR END_TXT
     BSR BACK_BUFFER
+    BSR PLAY_BAD
     
     SIMHALT
     
@@ -552,8 +598,11 @@ SCORE_TEXT  DC.B        'Current Score: ',0
 HEALTH_TEXT DC.B        'Health: ',0
 END_MESSAGE DC.B        'GAME OVER',0
 GROUND      DC.W        $258
+BAD         DC.B        'youarebadatthisgame.wav',0
+OWIE        DC.B        'owie.wav',0
     
     END    START
+
 
 
 
