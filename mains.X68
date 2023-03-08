@@ -234,7 +234,7 @@ DRAW_PLAYER:
     MOVE.W D5, D3
     ADD.W D7, D3
     
-    ; UPPER Y
+    ; LOWER Y
     MOVE.W D6, D4
     ADD.W D7, D4
     
@@ -422,43 +422,43 @@ RESET_ENEMY_POS:
 CHECK_COLLISION:
     CLR.L D1
     CLR.L D2
-    CLR.L D3
+    BSR CHECK_X_LEFT
+    RTS
  
 * (pX <= eX + eW) && (pX + pW >= eX) && (pY <= eY + eH) && (pY + pH >= eY)
 
-
-CHECK_PX_LTE_EX_PLS_EW:
-    MOVE.W PLAYER_X, D1
-    MOVE.W ENEMY_X, D2
-    ADD.W ENEMY_W, D2
-    CMP D1, D2
-    BLE CHECK_PX_PLS_PW_GTE_EX
-    RTS
-    
-CHECK_PX_PLS_PW_GTE_EX
+CHECK_X_LEFT:
     MOVE.W ENEMY_X, D1
+    SUB.W ENEMY_W, D1
     MOVE.W PLAYER_X, D2
-    ADD.W #10, D2
     CMP D2, D1
-    BGE CHECK_PY_LTE_EY_PLS_EH
+    BLE CHECK_X_RIGHT
     RTS
     
-CHECK_PY_LTE_EY_PLS_EH:
-    MOVE.W PLAYER_Y, D1
-    MOVE.W ENEMY_Y, D2
-    ADD.W ENEMY_H, D2
-    CMP D1, D2
-    BLE CHECK_PY_PLS_PH_GTE_EY
+CHECK_X_RIGHT:
+    MOVE.W ENEMY_X, D1
+    ADD.W ENEMY_W, D1
+    MOVE.W PLAYER_X, D2
+    CMP D2, D1
+    BGE CHECK_Y_TOP
     RTS
     
-CHECK_PY_PLS_PH_GTE_EY:
+CHECK_Y_TOP:
     MOVE.W ENEMY_Y, D1
+    SUB.W ENEMY_H, D1
     MOVE.W PLAYER_Y, D2
-    ADD.W #10, D2
+    CMP D2, D1
+    BLE CHECK_Y_BOTTOM
+    RTS
+    
+CHECK_Y_BOTTOM:
+    MOVE.W ENEMY_Y, D1
+    ADD.W ENEMY_H, D1
+    MOVE.W PLAYER_Y, D2
     CMP D2, D1
     BGE COLLISION
     RTS
-    
+
 COLLISION:
     LEA SCORE_MEM, A1
     MOVE.L #0, (A1)
@@ -468,12 +468,13 @@ COLLISION:
     SUB.B #10, D1
     MOVE.B D1, (A1)
     CLR.L D1
-    
+
     BSR CHECK_HEALTH
     BEQ DEATH
     
+    BSR RESET_ENEMY_POS
     RTS
-    
+
 CHECK_HEALTH:
     MOVE.B (A1), D1
     CMP.B #0, D1
